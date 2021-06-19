@@ -17,3 +17,4 @@
 
 # Custom
 firebase-credential.json
+.env
