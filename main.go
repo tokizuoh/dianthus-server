@@ -5,11 +5,65 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"strings"
 
 	firebase "firebase.google.com/go"
 	"github.com/joho/godotenv"
 	"google.golang.org/api/option"
 )
+
+type word struct {
+	raw    string
+	roman  string
+	vowels string
+}
+
+func extract_vowels(from string) string {
+	vowel := "aiuoe"
+
+	result := ""
+	shouldSkip := false
+
+	for i, sr := range from {
+		if shouldSkip {
+			shouldSkip = false
+			continue
+		}
+
+		s := string([]rune{sr})
+
+		if strings.Contains(vowel, s) {
+			result += s
+			continue
+		}
+
+		if s == "n" {
+			if i+1 < len(from) {
+				ns := from[i+1 : i+2]
+				if strings.Contains(vowel, ns) {
+					shouldSkip = true
+					result += ns
+				} else {
+					result += s
+				}
+			} else {
+				result += s
+			}
+			continue
+		}
+
+		if i+1 < len(from) {
+			ns := from[i+1 : i+2]
+			if s == ns {
+				result += "x"
+			}
+		} else {
+			result += s
+		}
+	}
+
+	return result
+}
 
 func main() {
 	if err := godotenv.Load(); err != nil {
@@ -51,5 +105,34 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println(string(data))
+	tv := extract_vowels("kien")
+
+	var result []word
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		_line := strings.Split(line, ",")
+
+		if len(_line) != 4 {
+			continue
+		}
+
+		vowels := strings.TrimSpace(_line[3])
+
+		if vowels != tv {
+			continue
+		}
+
+		w := word{
+			raw:    _line[1],
+			roman:  _line[2],
+			vowels: _line[3],
+		}
+		result = append(result, w)
+	}
+
+	for _, r := range result {
+		log.Println(r.raw, r.roman, r.vowels)
+	}
+
+	log.Println("FINISH!")
 }
