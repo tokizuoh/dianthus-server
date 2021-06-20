@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
@@ -12,10 +14,10 @@ import (
 	"google.golang.org/api/option"
 )
 
-type word struct {
-	raw    string
-	roman  string
-	vowels string
+type Word struct {
+	Raw    string `json:"raw"`
+	Roman  string `json:"roman"`
+	Vowels string `json:"vowels"`
 }
 
 func fetchCSV() ([]byte, error) {
@@ -108,8 +110,8 @@ func extractVowels(from string) string {
 	return result
 }
 
-func getWordsWithSameVowel(target string, data []byte) []word {
-	var result []word
+func getWordsWithSameVowel(target string, data []byte) []Word {
+	var result []Word
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
 		_line := strings.Split(line, ",")
@@ -124,10 +126,10 @@ func getWordsWithSameVowel(target string, data []byte) []word {
 			continue
 		}
 
-		w := word{
-			raw:    _line[1],
-			roman:  _line[2],
-			vowels: _line[3],
+		w := Word{
+			Raw:    _line[1],
+			Roman:  _line[2],
+			Vowels: vowels,
 		}
 		result = append(result, w)
 	}
@@ -135,18 +137,30 @@ func getWordsWithSameVowel(target string, data []byte) []word {
 }
 
 func main() {
-	data, err := fetchCSV()
-	if err != nil {
-		log.Fatal(err)
+	h := func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query().Get("target")
+		if q == "" {
+			// [TODO]: define specific errors
+			log.Fatal(1)
+		}
+
+		data, err := fetchCSV()
+		if err != nil {
+			// [TODO]: returns an error as a response
+			log.Fatal(err)
+		}
+
+		target := extractVowels(q)
+
+		words := getWordsWithSameVowel(target, data)
+
+		res, err := json.Marshal(words)
+		w.Header().Set("Content-Type", "application/json")
+		if _, err = w.Write(res); err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	target := extractVowels("kien")
-
-	words := getWordsWithSameVowel(target, data)
-
-	for _, r := range words {
-		log.Println(r.raw, r.roman, r.vowels)
-	}
-
-	log.Println("FINISH!")
+	http.HandleFunc("/v1/roman", h)
+	http.ListenAndServe(":8080", nil)
 }
