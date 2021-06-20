@@ -136,18 +136,40 @@ func getWordsWithSameVowel(target string, data []byte) []Word {
 	return result
 }
 
+func validAuth(r *http.Request) bool {
+	reqCliID, reqCliSec, ok := r.BasicAuth()
+	if ok != true {
+		return false
+	}
+
+	if err := godotenv.Load(); err != nil {
+		return false
+	}
+
+	cliID := os.Getenv("BASIC_AUTH_CLIENT_ID")
+	cliSec := os.Getenv("BASIC_AUTH_CLIENT_SECRET")
+	return cliID == reqCliID && cliSec == reqCliSec
+}
+
 func main() {
 	h := func(w http.ResponseWriter, r *http.Request) {
+
+		if validAuth(r) != true {
+			http.Error(w, "Unauthorized", 401)
+			return
+		}
+
 		q := r.URL.Query().Get("target")
 		if q == "" {
-			// [TODO]: define specific errors
-			log.Fatal(1)
+			http.Error(w, "Bad Request", 400)
+			return
 		}
 
 		data, err := fetchCSV()
 		if err != nil {
-			// [TODO]: returns an error as a response
-			log.Fatal(err)
+			log.Println(err)
+			http.Error(w, "Internal Server Error", 500)
+			return
 		}
 
 		target := extractVowels(q)
@@ -157,7 +179,9 @@ func main() {
 		res, err := json.Marshal(words)
 		w.Header().Set("Content-Type", "application/json")
 		if _, err = w.Write(res); err != nil {
-			log.Fatal(err)
+			log.Println(err)
+			http.Error(w, "Internal Server Error", 500)
+			return
 		}
 	}
 
