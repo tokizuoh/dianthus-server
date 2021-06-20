@@ -18,7 +18,50 @@ type word struct {
 	vowels string
 }
 
-func extract_vowels(from string) string {
+func fetchCSV() ([]byte, error) {
+	if err := godotenv.Load(); err != nil {
+		return nil, err
+	}
+
+	storageBucket := os.Getenv("FIREBASE_STORAGE_BUCKET")
+
+	config := &firebase.Config{
+		StorageBucket: storageBucket,
+	}
+	cred := os.Getenv("FIREBASE_CREDENTIAL_FILE_PATH")
+	opt := option.WithCredentialsFile(cred)
+	app, err := firebase.NewApp(context.Background(), config, opt)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := app.Storage(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	bucket, err := client.DefaultBucket()
+	if err != nil {
+		return nil, err
+	}
+
+	fp := os.Getenv("FIREBASE_STORAGEL_FILE_PATH")
+	ctx := context.Background()
+	rc, err := bucket.Object(fp).NewReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+
+	data, err := ioutil.ReadAll(rc)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
+}
+
+func extractVowels(from string) string {
 	vowel := "aiuoe"
 
 	result := ""
@@ -65,48 +108,7 @@ func extract_vowels(from string) string {
 	return result
 }
 
-func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal(err)
-	}
-
-	storageBucket := os.Getenv("FIREBASE_STORAGE_BUCKET")
-
-	config := &firebase.Config{
-		StorageBucket: storageBucket,
-	}
-	cred := os.Getenv("FIREBASE_CREDENTIAL_FILE_PATH")
-	opt := option.WithCredentialsFile(cred)
-	app, err := firebase.NewApp(context.Background(), config, opt)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	client, err := app.Storage(context.Background())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	bucket, err := client.DefaultBucket()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fp := os.Getenv("FIREBASE_STORAGEL_FILE_PATH")
-	ctx := context.Background()
-	rc, err := bucket.Object(fp).NewReader(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer rc.Close()
-
-	data, err := ioutil.ReadAll(rc)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	tv := extract_vowels("kien")
-
+func getWordsWithSameVowel(target string, data []byte) []word {
 	var result []word
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
@@ -118,7 +120,7 @@ func main() {
 
 		vowels := strings.TrimSpace(_line[3])
 
-		if vowels != tv {
+		if vowels != target {
 			continue
 		}
 
@@ -129,8 +131,20 @@ func main() {
 		}
 		result = append(result, w)
 	}
+	return result
+}
 
-	for _, r := range result {
+func main() {
+	data, err := fetchCSV()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	target := extractVowels("kien")
+
+	words := getWordsWithSameVowel(target, data)
+
+	for _, r := range words {
 		log.Println(r.raw, r.roman, r.vowels)
 	}
 
