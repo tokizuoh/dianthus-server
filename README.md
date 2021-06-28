@@ -1,5 +1,15 @@
 # dianthus-server
-
+  
+## .env
+  
+```
+FIREBASE_STORAGE_BUCKET={}
+FIREBASE_CREDENTIAL_FILE_PATH={}
+FIREBASE_STORAGEL_FILE_PATH={}
+BASIC_AUTH_CLIENT_ID={}
+BASIC_AUTH_CLIENT_SECRET={}
+```
+  
 ## Docker
   
 ### Version
