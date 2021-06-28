@@ -20,6 +20,12 @@ type Word struct {
 	Vowels string `json:"vowels"`
 }
 
+type Cache struct {
+	data []byte
+}
+
+var cache Cache
+
 func fetchCSV() ([]byte, error) {
 	if err := godotenv.Load(); err != nil {
 		return nil, err
@@ -165,12 +171,26 @@ func main() {
 			return
 		}
 
+		if len(cache.data) > 0 {
+			target := extractVowels(q)
+			words := getWordsWithSameVowel(target, cache.data)
+			res, err := json.Marshal(words)
+			w.Header().Set("Content-Type", "application/json")
+			if _, err = w.Write(res); err != nil {
+				log.Println(err)
+				http.Error(w, "Internal Server Error", 500)
+				return
+			}
+			return
+		}
+
 		data, err := fetchCSV()
 		if err != nil {
 			log.Println(err)
 			http.Error(w, "Internal Server Error", 500)
 			return
 		}
+		cache.data = data
 
 		target := extractVowels(q)
 
